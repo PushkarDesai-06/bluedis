@@ -2,27 +2,27 @@ import java.util.concurrent.ConcurrentMap;
 
 public class KeyValueStore<KeyType, ValueType> {
 
-  ConcurrentMap<Key<KeyType>, Value<ValueType>> map;
+  ConcurrentMap<KeyType, Value<ValueType>> map;
 
-  public KeyValueStore(ConcurrentMap<Key<KeyType>, Value<ValueType>> map) {
+  public KeyValueStore(ConcurrentMap<KeyType, Value<ValueType>> map) {
     this.map = map;
   }
 
   public GetDTO<KeyType, ValueType> get(Key<KeyType> key) {
-    if (!map.containsKey(key)) {
+    if (!map.containsKey(key.getKey())) {
       return GetDTO.notFound();
     }
 
-    return new GetDTO<>(true, map.get(key));
+    return new GetDTO<>(true, map.get(key.getKey()));
   }
 
   public PutDTO<KeyType, ValueType> put(Key<KeyType> key, Value<ValueType> value) {
 
-    boolean alreadyPresent = map.containsKey(key);
+    boolean alreadyPresent = map.containsKey(key.getKey());
 
-    map.put(key, value);
+    map.put(key.getKey(), value);
 
-    return new PutDTO(alreadyPresent, alreadyPresent, value);
+    return new PutDTO<>(alreadyPresent, true, value);
   }
 
   public DeleteDTO<KeyType, ValueType> delete(Key<KeyType> key) {
@@ -30,10 +30,10 @@ public class KeyValueStore<KeyType, ValueType> {
     boolean isRemoved = false;
     Value<ValueType> value = null;
 
-    if (map.containsKey(key)) {
+    if (map.containsKey(key.getKey())) {
       isPresent = true;
-      map.remove(key);
-      value = map.get(key);
+      map.remove(key.getKey());
+      value = map.get(key.getKey());
     }
 
     isRemoved = true;

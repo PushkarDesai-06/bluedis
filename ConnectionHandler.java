@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
@@ -12,11 +13,14 @@ public class ConnectionHandler {
   int PORT;
   CommandParser commandParser;
   ExecutorService threadpool;
+  KeyValueStore<String, String> store;
 
-  public ConnectionHandler(int threadCount, int PORT, CommandParser commandParser) {
+  public ConnectionHandler(int threadCount, int PORT, CommandParser commandParser,
+      KeyValueStore<String, String> store) {
     this.threadCount = threadCount;
     this.PORT = PORT;
     this.commandParser = commandParser;
+    this.store = store;
 
     initializeThreadpool();
   }
@@ -34,8 +38,7 @@ public class ConnectionHandler {
 
   public void handleConnections() {
 
-    try {
-      ServerSocket serverSocket = new ServerSocket(PORT);
+    try (ServerSocket serverSocket = new ServerSocket(PORT)) {
       System.out.println("Server is up and listening on port : " + PORT);
 
       while (true) {
@@ -63,16 +66,87 @@ public class ConnectionHandler {
       InputStream input = connection.getInputStream();
       BufferedReader br = new BufferedReader(new InputStreamReader(input));
       while (true) {
-
         String data = br.readLine();
-        String parsed = commandParser.parse(data);
-        System.out.println(parsed);
+        if (data == null || data.isBlank()) {
+          System.out.println("Closing Connection " + connection.getPort());
+          connection.close();
+          return;
+        }
+
+        Pair<Actions, String[]> parsed = commandParser.parse(data);
+
+        System.out.println(parsed.getFirst() + " | " + parsed.getSecond());
+
+        if (parsed.getFirst() == Actions.NONE)
+          continue;
+
+        if (null == parsed.getFirst()) {
+          sendRaw(connection, "WRONG_COMMAND");
+        } else
+          switch (parsed.getFirst()) {
+            case GET: {
+              GetDTO<String, String> dto = store.get(new StringKey(parsed.getSecond()[0]));
+              if (!dto.isFound) {
+                sendNotFound(connection);
+              } else {
+                sendValue(connection, dto.value);
+              }
+              break;
+            }
+            case PUT: {
+              StringKey key = new StringKey(parsed.getSecond()[0]);
+              StringValue value = new StringValue(parsed.getSecond()[1]);
+              System.out.println(value.getValue());
+
+              PutDTO<String, String> dto = store.put(key, value);
+
+              if (!dto.isOk) {
+                sendNotFound(connection);
+              } else {
+                sendValue(connection, dto.value);
+              }
+              break;
+            }
+            case DELETE: {
+              DeleteDTO<String, String> dto = store.delete(new StringKey(parsed.getSecond()[0]));
+              if (!dto.isPresent) {
+                sendNotFound(connection);
+              } else {
+                sendValue(connection, new StringValue(parsed.getSecond()[0]));
+              }
+              break;
+            }
+            case PING:
+              sendRaw(connection, "PONG");
+              break;
+            default:
+              sendRaw(connection, "WRONG_COMMAND");
+              break;
+          }
       }
 
     } catch (Exception e) {
       connection.close();
       System.out.println(e);
     }
+  }
+
+  public void sendNotFound(Socket connection) {
+    sendRaw(connection, "NOT_FOUND");
+  }
+
+  public void sendValue(Socket connection, Value<String> value) {
+    sendRaw(connection, value.getValue());
+  }
+
+  public void sendRaw(Socket connection, String s) {
+    try {
+      PrintWriter out = new PrintWriter(connection.getOutputStream(), true);
+      out.println(s);
+    } catch (IOException ex) {
+      System.getLogger(ConnectionHandler.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+    }
+
   }
 
 }

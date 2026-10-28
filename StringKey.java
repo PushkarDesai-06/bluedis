@@ -6,6 +6,10 @@ public class StringKey implements Key<String> {
   private LocalDateTime TTL;
   private boolean hasExpired;
 
+  public StringKey(String key) {
+    this.key = key;
+  }
+
   public StringKey(String key, LocalDateTime TTL, boolean hasExpired) {
     this.key = key;
     this.TTL = TTL;
