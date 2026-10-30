@@ -9,10 +9,12 @@ public class KeyValueStore<KeyType, ValueType> {
   }
 
   public GetDTO<KeyType, ValueType> get(Key<KeyType> key) {
+    System.out.println("Key : " + key);
     Value<ValueType> value = map.getOrDefault(key.getKey(), null);
 
     if (value == null)
       return GetDTO.notFound();
+
     return new GetDTO<>(true, value);
   }
 

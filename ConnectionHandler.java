@@ -68,15 +68,16 @@ public class ConnectionHandler {
       while (true) {
         String data = br.readLine();
         if (data == null || data.isBlank()) {
-            try (connection) {
-                System.out.println("Closing Connection " + connection.getPort());
-            }
+          try (connection) {
+            System.out.println("Closing Connection " + connection.getPort());
+          }
           return;
         }
 
         Pair<Actions, String[]> parsed = commandParser.parse(data);
 
-        System.out.println(parsed.getFirst() + " | " + parsed.getSecond());
+        System.out.println(parsed.getFirst() + " | " + parsed.getSecond()[0] + " | "
+            + (parsed.getSecond().length == 2 ? parsed.getSecond()[1] : ""));
 
         if (parsed.getFirst() == Actions.NONE)
           continue;
@@ -85,7 +86,7 @@ public class ConnectionHandler {
           sendRaw(connection, "WRONG_COMMAND");
         } else
           switch (parsed.getFirst()) {
-            case GET ->  {
+            case GET -> {
               GetDTO<String, String> dto = store.get(new StringKey(parsed.getSecond()[0]));
               if (!dto.isFound) {
                 sendNotFound(connection);
@@ -93,7 +94,7 @@ public class ConnectionHandler {
                 sendValue(connection, dto.value);
               }
             }
-            case PUT ->  {
+            case PUT -> {
               StringKey key = new StringKey(parsed.getSecond()[0]);
               StringValue value = new StringValue(parsed.getSecond()[1]);
               System.out.println(value.getValue());
@@ -106,7 +107,7 @@ public class ConnectionHandler {
                 sendValue(connection, dto.value);
               }
             }
-            case DELETE ->  {
+            case DELETE -> {
               DeleteDTO<String, String> dto = store.delete(new StringKey(parsed.getSecond()[0]));
               if (!dto.isPresent) {
                 sendNotFound(connection);
@@ -114,8 +115,8 @@ public class ConnectionHandler {
                 sendValue(connection, new StringValue(parsed.getSecond()[0]));
               }
             }
-            case PING -> sendRaw(connection, "PONG");
-            default -> sendRaw(connection, "WRONG_COMMAND");
+            case PING -> sendText(connection, "PONG");
+            default -> sendText(connection, "WRONG_COMMAND");
           }
       }
 
@@ -131,6 +132,10 @@ public class ConnectionHandler {
 
   public void sendValue(Socket connection, Value<String> value) {
     sendRaw(connection, value.getValue());
+  }
+
+  public void sendText(Socket connection, String text) {
+    sendRaw(connection, text);
   }
 
   public void sendRaw(Socket connection, String s) {
