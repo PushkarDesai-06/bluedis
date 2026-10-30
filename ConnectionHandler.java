@@ -67,67 +67,113 @@ public class ConnectionHandler {
       BufferedReader br = new BufferedReader(new InputStreamReader(input));
       while (true) {
         String data = br.readLine();
-        if (data == null || data.isBlank()) {
+        if (data == null) {
           try (connection) {
             System.out.println("Closing Connection " + connection.getPort());
           }
           return;
         }
 
-        Pair<Actions, String[]> parsed = commandParser.parse(data);
-
-        System.out.println(parsed.getFirst() + " | " + parsed.getSecond()[0] + " | "
-            + (parsed.getSecond().length == 2 ? parsed.getSecond()[1] : ""));
-
-        if (parsed.getFirst() == Actions.NONE)
+        if ("".equals(data))
           continue;
 
-        if (null == parsed.getFirst()) {
-          sendRaw(connection, "WRONG_COMMAND");
-        } else
-          switch (parsed.getFirst()) {
-            case GET -> {
-              GetDTO<String, String> dto = store.get(new StringKey(parsed.getSecond()[0]));
-              if (!dto.isFound) {
-                sendNotFound(connection);
-              } else {
-                sendValue(connection, dto.value);
-              }
-            }
-            case PUT -> {
-              StringKey key = new StringKey(parsed.getSecond()[0]);
-              StringValue value = new StringValue(parsed.getSecond()[1]);
-              System.out.println(value.getValue());
+        Pair<Actions, String[]> parsed = commandParser.parse(data);
 
-              PutDTO<String, String> dto = store.put(key, value);
-
-              if (!dto.isOk) {
-                sendNotFound(connection);
-              } else {
-                sendValue(connection, dto.value);
-              }
-            }
-            case DELETE -> {
-              DeleteDTO<String, String> dto = store.delete(new StringKey(parsed.getSecond()[0]));
-              if (!dto.isPresent) {
-                sendNotFound(connection);
-              } else {
-                sendValue(connection, new StringValue(parsed.getSecond()[0]));
-              }
-            }
-            case PING -> sendText(connection, "PONG");
-            default -> sendText(connection, "WRONG_COMMAND");
+        switch (parsed.getFirst()) {
+          case NONE -> {
+            sendWrongCommand(connection);
           }
+          case null -> {
+            sendWrongCommand(connection);
+          }
+          case GET -> {
+            String key = parsed.getSecond()[0];
+            StringKey key1 = new StringKey(key);
+            GetDTO<String, String> dto = store.get(key1);
+            if (!dto.isFound()) {
+              sendNotFound(connection);
+            } else if (dto.isExpired()) {
+              store.delete(key1);
+              sendNotFound(connection);
+            } else {
+              sendValue(connection, dto.value());
+            }
+          }
+          case PUT -> {
+            StringKey key = new StringKey(parsed.getSecond()[0]);
+            StringValue value = new StringValue(parsed.getSecond()[1]);
+
+            PutDTO<String, String> dto = store.put(key, value);
+
+            if (!dto.isOk) {
+              sendNotFound(connection);
+            } else {
+              sendValue(connection, dto.value);
+            }
+          }
+          case DELETE -> {
+            DeleteDTO<String, String> dto = store.delete(new StringKey(parsed.getSecond()[0]));
+            if (!dto.isPresent) {
+              sendNotFound(connection);
+            } else {
+              sendValue(connection, new StringValue(parsed.getSecond()[0]));
+            }
+          }
+          case EXP -> {
+            StringKey key = new StringKey(parsed.getSecond()[0]);
+            long seconds = Long.parseLong(parsed.getSecond()[1]);
+
+            ExpDTO dto = store.exp(key, seconds);
+
+            if (!dto.isValid()) {
+              sendWrongCommand(connection);
+              return;
+            }
+
+            if (!dto.isPresent()) {
+              sendNotFound(connection);
+              return;
+            }
+
+            sendText(connection, key + " : " + seconds);
+          }
+          case TTL -> {
+            StringKey key = new StringKey(parsed.getSecond()[0]);
+
+            TtlDTO dto = store.ttl(key);
+
+            if (!dto.isFound()) {
+              sendNotFound(connection);
+              return;
+            }
+
+            sendText(connection, dto.seconds() + "");
+
+          }
+          case PING -> sendText(connection, "PONG");
+          default -> sendText(connection, "WRONG_COMMAND");
+        }
       }
 
     } catch (IOException e) {
+      System.out.println("Closing Connection " + connection.getPort());
       connection.close();
       System.out.println(e);
+      sendWrongCommand(connection);
+    } catch (Exception e) {
+      System.out.println("Closing Connection " + connection.getPort());
+      connection.close();
+      System.out.println(e);
+      sendWrongCommand(connection);
     }
   }
 
   public void sendNotFound(Socket connection) {
     sendRaw(connection, "NOT_FOUND");
+  }
+
+  public void sendWrongCommand(Socket connnection) {
+    sendRaw(connnection, "WRONG_COMMAND");
   }
 
   public void sendValue(Socket connection, Value<String> value) {

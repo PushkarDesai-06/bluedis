@@ -9,13 +9,22 @@ public class KeyValueStore<KeyType, ValueType> {
   }
 
   public GetDTO<KeyType, ValueType> get(Key<KeyType> key) {
-    System.out.println("Key : " + key);
-    Value<ValueType> value = map.getOrDefault(key.getKey(), null);
+    try {
 
-    if (value == null)
+      Value<ValueType> value = map.getOrDefault(key.getKey(), null);
+
+      if (value == null)
+        return GetDTO.notFound();
+
+      if (value.isExpired()) {
+        return GetDTO.expired();
+      }
+
+      return new GetDTO<>(true, false, value);
+    } catch (Exception e) {
+      System.out.println(e);
       return GetDTO.notFound();
-
-    return new GetDTO<>(true, value);
+    }
   }
 
   public PutDTO<KeyType, ValueType> put(Key<KeyType> key, Value<ValueType> value) {
@@ -30,5 +39,28 @@ public class KeyValueStore<KeyType, ValueType> {
     Value<ValueType> prev = map.remove(key.getKey());
 
     return new DeleteDTO<>(prev != null, true, value);
+  }
+
+  public ExpDTO exp(Key<KeyType> key, long seconds) {
+    if (seconds < 0)
+      return ExpDTO.invalid();
+
+    Value<ValueType> prev = map.computeIfPresent(key.getKey(), (key1, val1) -> {
+      val1.setExp(seconds);
+      return val1;
+    });
+
+    if (prev == null)
+      return ExpDTO.notFound();
+
+    return new ExpDTO(true, true);
+  }
+
+  public TtlDTO ttl(Key<KeyType> key) {
+    Value<ValueType> value = map.getOrDefault(key.getKey(), null);
+    if (value == null)
+      return TtlDTO.notFound();
+
+    return new TtlDTO(true, value.getTTL());
   }
 }

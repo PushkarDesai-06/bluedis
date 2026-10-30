@@ -1,21 +1,10 @@
-public class GetDTO<K, V> {
-  boolean isFound;
-  Value<V> value;
-
-  public boolean getIsFound() {
-    return isFound;
-  }
-
-  public Value<V> getValue() {
-    return value;
-  }
-
-  public GetDTO(boolean isFound, Value<V> value) {
-    this.isFound = isFound;
-    this.value = value;
-  }
-
+public record GetDTO<K, V>(boolean isFound, boolean isExpired, Value<V> value) {
   public static GetDTO notFound() {
-    return new GetDTO<>(false, null);
+    return new GetDTO<>(false, false, null);
   }
+
+  public static GetDTO expired() {
+    return new GetDTO<>(true, true, null);
+  }
+
 }

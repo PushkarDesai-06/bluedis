@@ -1,3 +1,3 @@
 public enum Actions {
-  GET, PUT, DELETE, PING, NONE, EXP
+  GET, PUT, DELETE, PING, NONE, EXP, TTL
 }
