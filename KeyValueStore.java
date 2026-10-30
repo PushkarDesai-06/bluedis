@@ -9,84 +9,24 @@ public class KeyValueStore<KeyType, ValueType> {
   }
 
   public GetDTO<KeyType, ValueType> get(Key<KeyType> key) {
-    if (!map.containsKey(key.getKey())) {
-      return GetDTO.notFound();
-    }
+    Value<ValueType> value = map.getOrDefault(key.getKey(), null);
 
-    return new GetDTO<>(true, map.get(key.getKey()));
+    if (value == null)
+      return GetDTO.notFound();
+    return new GetDTO<>(true, value);
   }
 
   public PutDTO<KeyType, ValueType> put(Key<KeyType> key, Value<ValueType> value) {
+    Value<ValueType> prev = map.put(key.getKey(), value);
 
-    boolean alreadyPresent = map.containsKey(key.getKey());
-
-    map.put(key.getKey(), value);
-
-    return new PutDTO<>(alreadyPresent, true, value);
+    return new PutDTO<>(prev != null && prev == value, true, value);
   }
 
   public DeleteDTO<KeyType, ValueType> delete(Key<KeyType> key) {
-    boolean isPresent = false;
-    boolean isRemoved = false;
     Value<ValueType> value = null;
 
-    if (map.containsKey(key.getKey())) {
-      isPresent = true;
-      map.remove(key.getKey());
-      value = map.get(key.getKey());
-    }
+    Value<ValueType> prev = map.remove(key.getKey());
 
-    isRemoved = true;
-
-    return new DeleteDTO(isPresent, isRemoved, value);
-  }
-
-}
-
-class GetDTO<K, V> {
-  boolean isFound;
-  Value<V> value;
-
-  public boolean getIsFound() {
-    return isFound;
-  }
-
-  public Value<V> getValue() {
-    return value;
-  }
-
-  public GetDTO(boolean isFound, Value<V> value) {
-    this.isFound = isFound;
-    this.value = value;
-  }
-
-  public static GetDTO notFound() {
-    return new GetDTO(false, null);
-  }
-}
-
-class PutDTO<K, V> {
-  boolean alreadyPresent;
-  boolean isOk;
-  Value<V> value;
-
-  public PutDTO(boolean alreadyPresent, boolean isOk, Value value) {
-    this.alreadyPresent = alreadyPresent;
-    this.isOk = isOk;
-    this.value = value;
-  }
-
-}
-
-class DeleteDTO<K, V> {
-  boolean isPresent;
-  boolean deleted;
-
-  Value<V> deletedValue;
-
-  public DeleteDTO(boolean isPresent, boolean deleted, Value<V> deletedValue) {
-    this.isPresent = isPresent;
-    this.deleted = deleted;
-    this.deletedValue = deletedValue;
+    return new DeleteDTO<>(prev != null, true, value);
   }
 }

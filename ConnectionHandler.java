@@ -68,8 +68,9 @@ public class ConnectionHandler {
       while (true) {
         String data = br.readLine();
         if (data == null || data.isBlank()) {
-          System.out.println("Closing Connection " + connection.getPort());
-          connection.close();
+            try (connection) {
+                System.out.println("Closing Connection " + connection.getPort());
+            }
           return;
         }
 
@@ -84,16 +85,15 @@ public class ConnectionHandler {
           sendRaw(connection, "WRONG_COMMAND");
         } else
           switch (parsed.getFirst()) {
-            case GET: {
+            case GET ->  {
               GetDTO<String, String> dto = store.get(new StringKey(parsed.getSecond()[0]));
               if (!dto.isFound) {
                 sendNotFound(connection);
               } else {
                 sendValue(connection, dto.value);
               }
-              break;
             }
-            case PUT: {
+            case PUT ->  {
               StringKey key = new StringKey(parsed.getSecond()[0]);
               StringValue value = new StringValue(parsed.getSecond()[1]);
               System.out.println(value.getValue());
@@ -105,27 +105,21 @@ public class ConnectionHandler {
               } else {
                 sendValue(connection, dto.value);
               }
-              break;
             }
-            case DELETE: {
+            case DELETE ->  {
               DeleteDTO<String, String> dto = store.delete(new StringKey(parsed.getSecond()[0]));
               if (!dto.isPresent) {
                 sendNotFound(connection);
               } else {
                 sendValue(connection, new StringValue(parsed.getSecond()[0]));
               }
-              break;
             }
-            case PING:
-              sendRaw(connection, "PONG");
-              break;
-            default:
-              sendRaw(connection, "WRONG_COMMAND");
-              break;
+            case PING -> sendRaw(connection, "PONG");
+            default -> sendRaw(connection, "WRONG_COMMAND");
           }
       }
 
-    } catch (Exception e) {
+    } catch (IOException e) {
       connection.close();
       System.out.println(e);
     }
