@@ -92,9 +92,6 @@ public class ConnectionHandler {
             GetDTO<String, String> dto = store.get(key1);
             if (!dto.isFound()) {
               sendNotFound(connection);
-            } else if (dto.isExpired()) {
-              store.delete(key1);
-              sendNotFound(connection);
             } else {
               sendValue(connection, dto.value());
             }

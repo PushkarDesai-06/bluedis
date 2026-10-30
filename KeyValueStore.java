@@ -11,14 +11,16 @@ public class KeyValueStore<KeyType, ValueType> {
   public GetDTO<KeyType, ValueType> get(Key<KeyType> key) {
     try {
 
-      Value<ValueType> value = map.getOrDefault(key.getKey(), null);
+      Value<ValueType> value = map.computeIfPresent(key.getKey(), (k, v) -> {
+        if (v.isExpired()) {
+          return null;
+        }
+
+        return v;
+      });
 
       if (value == null)
         return GetDTO.notFound();
-
-      if (value.isExpired()) {
-        return GetDTO.expired();
-      }
 
       return new GetDTO<>(true, false, value);
     } catch (Exception e) {
